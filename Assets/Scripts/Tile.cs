@@ -16,11 +16,21 @@ public class Tile : MonoBehaviour
     {
         this.value = value;
         text.text = value.ToString();
+        spr.color = GameManager.Instance.tileColors[(int)Mathf.Log(value, 2)];
     }
 
     public void UpdatePosition(int x, int y)
     {
-        transform.position = new Vector3(x, y);
+        StartCoroutine(LerpPosition(new Vector3(x, y)));
+    }
+
+    public IEnumerator LerpPosition(Vector3 newPosition)
+    {
+        while(transform.position != newPosition)
+        {
+            transform.position = Vector3.MoveTowards(transform.position, newPosition, GameManager.Instance.tileSpeed * Time.deltaTime);
+            yield return new WaitForEndOfFrame();
+        }
     }
 
 }

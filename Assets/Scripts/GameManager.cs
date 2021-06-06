@@ -7,6 +7,8 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance;
     [SerializeField]
     private Tile tilePrefab;
+    public Color32[] tileColors;
+    public float tileSpeed = 1f;
 
     private const int winTile = 2048;
     private readonly int[] spawnTiles = new int[] {2, 4};
@@ -17,8 +19,26 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private int startingNodes = 1;
 
+    [Header("UI")]
+    [SerializeField]
+    private TMPro.TextMeshProUGUI scoreTxt;
+    public GameObject win;
+    public GameObject undoBtn;
+
     private int totalScore = 0;
+    private int TotalScore
+    {
+        get { return totalScore; }
+        set 
+        { 
+            totalScore = value;
+            scoreTxt.text = totalScore.ToString();
+        }
+    }
     private Tile[,] grid;
+
+    private int[,] undoGrid;
+    private int pastScore;
 
     private void Awake()
     {
@@ -43,20 +63,38 @@ public class GameManager : MonoBehaviour
     {
         if(Input.GetKeyDown(KeyCode.UpArrow) && CanMoveY())
         {
+            SaveLastMove();
             MoveTilesUp();
         }
         else if(Input.GetKeyDown(KeyCode.DownArrow) && CanMoveY())
         {
+            SaveLastMove();
             MoveTilesDown();
         }
         else if(Input.GetKeyDown(KeyCode.RightArrow) && CanMoveX())
         {
+            SaveLastMove();
             MoveTilesRight();
         }
         else if(Input.GetKeyDown(KeyCode.LeftArrow) && CanMoveX())
         {
+            SaveLastMove();
             MoveTilesLeft();
         }
+    }
+
+    private void SaveLastMove()
+    {
+        undoGrid = new int[gridSize.x, gridSize.y];
+        pastScore = totalScore;
+        for(int x = 0; x < gridSize.x; x++)
+        {
+            for(int y = 0; y < gridSize.y; y++)
+            {
+                undoGrid[x, y] = grid[x, y] ? grid[x, y].Value : 0;
+            }
+        }
+        undoBtn.SetActive(true);
     }
 
     private void MoveTilesUp()
@@ -197,15 +235,11 @@ public class GameManager : MonoBehaviour
         //check if win or lose
         if (GameWon())
         {
-
+            win.SetActive(true);
         }
-        else if(GameLost())
+        else if(!GameLost())
         {
-            
-        }
-        else
-        {
-            AddNewTile();
+            AddNewTile(GetEmptyTile(), spawnTiles[Random.Range(0, spawnTiles.Length)]);
         }
     }
 
@@ -279,7 +313,7 @@ public class GameManager : MonoBehaviour
             {
                 int newValue = tiles[pos].Value + tiles[pos].Value;
                 tiles[pos].SetupTile(newValue);
-                totalScore += newValue;
+                TotalScore += newValue;
                 Destroy(tiles[pos + 1].gameObject);
                 tiles.RemoveAt(pos + 1);
             }
@@ -304,13 +338,46 @@ public class GameManager : MonoBehaviour
 
     public void NewGame()
     {
+        win.SetActive(false);
+        undoBtn.SetActive(false);
+        TotalScore = 0;
         SetupGrid();
     }
 
-    private void AddNewTile()
+    public void Undo()
     {
-        Vector2Int pos = GetEmptyTile();
-        int value = spawnTiles[Random.Range(0, spawnTiles.Length)];
+        //delete past tiles
+        for (int x = 0; x < gridSize.x; x++)
+        {
+            for (int y = 0; y < gridSize.y; y++)
+            {
+                if (grid[x, y])
+                {
+                    Destroy(grid[x, y].gameObject);
+                }
+            }
+        }
+        grid = new Tile[gridSize.x, gridSize.y];
+
+        //put in new tiles
+        for (int x = 0; x < gridSize.x; x++)
+        {
+            for (int y = 0; y < gridSize.y; y++)
+            {
+                if(undoGrid[x,y] != 0)
+                {
+                    AddNewTile(new Vector2Int(x, y), undoGrid[x,y]);
+                }
+            }
+        }
+
+        TotalScore = pastScore;
+        undoBtn.SetActive(false);
+
+    }
+
+    private void AddNewTile(Vector2Int pos, int value)
+    {
         Tile tile = Instantiate(tilePrefab, new Vector3(pos.x, pos.y), Quaternion.identity);
         tile.SetupTile(value);
         grid[pos.x, pos.y] = tile;
@@ -335,30 +402,25 @@ public class GameManager : MonoBehaviour
 
     private void SetupGrid()
     {
+        if (grid != null)
+        {
+            for (int x = 0; x < gridSize.x; x++)
+            {
+                for (int y = 0; y < gridSize.y; y++)
+                {
+                    if (grid[x, y])
+                    {
+                        Destroy(grid[x, y].gameObject);
+                    }
+                }
+            }
+        }
         grid = new Tile[gridSize.x, gridSize.y];
 
         for (int i = 0; i < startingNodes; i++)
         {
-            AddNewTile();
+            AddNewTile(GetEmptyTile(), spawnTiles[Random.Range(0, spawnTiles.Length)]);
         }
 
-        Print();
     }
-
-    private void Print()
-    {
-        string result = "\n";
-        for (int y = 0; y < gridSize.y; y++)
-        {
-            for (int x = 0; x < gridSize.x; x++)
-            {
-                if (grid[x, y])
-                    result += $"'{grid[x, y].Value}'";
-                else
-                    result += "'0'";
-            }
-            result += "\n";
-        }
-    }
-
 }
