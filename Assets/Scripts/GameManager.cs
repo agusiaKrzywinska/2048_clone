@@ -6,6 +6,9 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
     [SerializeField]
+    private Camera mainCam;
+    [Header("Tile Settings")]
+    [SerializeField]
     private Tile tilePrefab;
     public Color32[] tileColors;
     public float tileSpeed = 1f;
@@ -21,9 +24,13 @@ public class GameManager : MonoBehaviour
 
     [Header("UI")]
     [SerializeField]
+    private Transform board;
+    [SerializeField]
     private TMPro.TextMeshProUGUI scoreTxt;
     public GameObject win;
     public GameObject undoBtn;
+
+    public bool acceptInput = true;
 
     private int totalScore = 0;
     private int TotalScore
@@ -61,6 +68,8 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
+        if (!acceptInput) return;
+
         if(Input.GetKeyDown(KeyCode.UpArrow) && CanMoveY())
         {
             SaveLastMove();
@@ -127,7 +136,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        FinishTurn();
+        StartCoroutine(FinishTurn());
     }
 
     private void MoveTilesDown()
@@ -160,7 +169,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        FinishTurn();
+        StartCoroutine(FinishTurn());
     }
 
     private void MoveTilesLeft()
@@ -193,7 +202,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        FinishTurn();
+        StartCoroutine(FinishTurn());
     }
 
     private void MoveTilesRight()
@@ -226,12 +235,13 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        FinishTurn();
+        StartCoroutine(FinishTurn());
     }
 
-    private void FinishTurn()
+    private IEnumerator FinishTurn()
     {
-        UpdateVisuals();
+        acceptInput = false;
+        yield return UpdateVisuals();
         //check if win or lose
         if (GameWon())
         {
@@ -240,7 +250,9 @@ public class GameManager : MonoBehaviour
         else if(!GameLost())
         {
             AddNewTile(GetEmptyTile(), spawnTiles[Random.Range(0, spawnTiles.Length)]);
+            acceptInput = true;
         }
+
     }
 
     private bool GameWon()
@@ -324,23 +336,45 @@ public class GameManager : MonoBehaviour
         return tiles;
     }
 
-    private void UpdateVisuals()
+    private IEnumerator UpdateVisuals()
     {
-        for(int x = 0; x < gridSize.x; x++)
+        //Start moving all the pieces
+        for (int x = 0; x < gridSize.x; x++)
         {
-            for(int y = 0; y < gridSize.y; y++)
+            for (int y = 0; y < gridSize.y; y++)
             {
                 if (grid[x, y])
                     grid[x, y].UpdatePosition(x, y);
+            }
+        }
+        //wait until they are all done
+        for (int x = 0; x < gridSize.x; x++)
+        {
+            for (int y = 0; y < gridSize.y; y++)
+            {
+                if (grid[x, y])
+                {
+                    while(grid[x,y].isMoving)
+                    {
+                        yield return new WaitForEndOfFrame();
+                    }
+                }
             }
         }
     }
 
     public void NewGame()
     {
+        //resetting values
+        acceptInput = true;
         win.SetActive(false);
         undoBtn.SetActive(false);
         TotalScore = 0;
+        //positioning camera to fit the grid. 
+        mainCam.transform.position = new Vector3(gridSize.x/2f, gridSize.y/2f, mainCam.transform.position.z);
+        mainCam.orthographicSize = Mathf.Max(gridSize.x, gridSize.y);
+        board.localScale = new Vector3(gridSize.x, gridSize.y, 1);
+
         SetupGrid();
     }
 
@@ -385,6 +419,7 @@ public class GameManager : MonoBehaviour
 
     private Vector2Int GetEmptyTile()
     {
+        //finds all the possible empty tiles
         List<Vector2Int> emptyTiles = new List<Vector2Int>();
         for (int y = 0; y < gridSize.y; y++)
         {
@@ -395,6 +430,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
+        //getting random tile position
         Vector2Int randomEmpty = emptyTiles[Random.Range(0, emptyTiles.Count)];
         emptyTiles.Remove(randomEmpty);
         return randomEmpty;
@@ -402,6 +438,7 @@ public class GameManager : MonoBehaviour
 
     private void SetupGrid()
     {
+        //clearing past grid data
         if (grid != null)
         {
             for (int x = 0; x < gridSize.x; x++)
@@ -416,7 +453,8 @@ public class GameManager : MonoBehaviour
             }
         }
         grid = new Tile[gridSize.x, gridSize.y];
-
+        
+        //Add starting nodes
         for (int i = 0; i < startingNodes; i++)
         {
             AddNewTile(GetEmptyTile(), spawnTiles[Random.Range(0, spawnTiles.Length)]);

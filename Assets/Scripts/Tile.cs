@@ -11,6 +11,8 @@ public class Tile : MonoBehaviour
     private SpriteRenderer spr;
     [SerializeField]
     private TMPro.TextMeshPro text;
+    [HideInInspector]
+    public bool isMoving = false;
     
     public void SetupTile(int value)
     {
@@ -26,11 +28,26 @@ public class Tile : MonoBehaviour
 
     public IEnumerator LerpPosition(Vector3 newPosition)
     {
+        isMoving = true;
+
+        /*
         while(transform.position != newPosition)
         {
             transform.position = Vector3.MoveTowards(transform.position, newPosition, GameManager.Instance.tileSpeed * Time.deltaTime);
             yield return new WaitForEndOfFrame();
         }
+        */
+        Vector3 startPos = transform.position;
+        float currentTime = 0;
+        float totalTime = Vector3.Distance(startPos, newPosition) / GameManager.Instance.tileSpeed;
+        while(currentTime < totalTime)
+        {
+            currentTime += Time.deltaTime;
+            transform.position = Vector3.Lerp(startPos, newPosition, currentTime / totalTime);
+            yield return new WaitForEndOfFrame();
+        }
+
+        isMoving = false;
     }
 
 }
