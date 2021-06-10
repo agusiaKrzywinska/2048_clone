@@ -13,7 +13,9 @@ public class Tile : MonoBehaviour
     private TMPro.TextMeshPro text;
     [HideInInspector]
     public bool isMoving = false;
-    
+
+    private Vector3 newPosition;
+    public Vector3 NewPosition => newPosition;
     public void SetupTile(int value)
     {
         this.value = value;
@@ -21,15 +23,20 @@ public class Tile : MonoBehaviour
         spr.color = GameManager.Instance.tileColors[(int)Mathf.Log(value, 2)];
     }
 
-    public void UpdatePosition(int x, int y)
+    public void UpdatePosition(Vector3 pos)
     {
-        StartCoroutine(LerpPosition(new Vector3(x, y)));
+        newPosition = pos;
+        UpdatePosition();
+    }
+
+    public void UpdatePosition()
+    {
+        StartCoroutine(LerpPosition(newPosition));
     }
 
     public IEnumerator LerpPosition(Vector3 newPosition)
     {
         isMoving = true;
-
         /*
         while(transform.position != newPosition)
         {

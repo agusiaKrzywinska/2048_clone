@@ -1287,7 +1287,9 @@ MonoBehaviour:
   scoreTxt: {fileID: 727197091}
   win: {fileID: 437329363}
   undoBtn: {fileID: 1440032750}
-  acceptInput: 1
+  startNodeSlider: {fileID: 0}
+  xSlider: {fileID: 0}
+  ySlider: {fileID: 0}
 --- !u!4 &1416505156
 Transform:
   m_ObjectHideFlags: 0

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
@@ -10,11 +11,12 @@ public class GameManager : MonoBehaviour
     [Header("Tile Settings")]
     [SerializeField]
     private Tile tilePrefab;
+    private List<Tile> tiles = new List<Tile>();
     public Color32[] tileColors;
     public float tileSpeed = 1f;
 
     private const int winTile = 2048;
-    private readonly int[] spawnTiles = new int[] {2, 4};
+    private readonly int[] spawnTiles = new int[] { 2, 4 };
 
     [Header("Grid Settings")]
     [SerializeField]
@@ -30,14 +32,15 @@ public class GameManager : MonoBehaviour
     public GameObject win;
     public GameObject undoBtn;
 
-    public bool acceptInput = true;
+    private List<(Tile myTile, Tile mergedTile)> toDelete = new List<(Tile myTile, Tile mergedTile)>();  
+    private bool acceptInput = true;
 
     private int totalScore = 0;
     private int TotalScore
     {
         get { return totalScore; }
-        set 
-        { 
+        set
+        {
             totalScore = value;
             scoreTxt.text = totalScore.ToString();
         }
@@ -58,7 +61,7 @@ public class GameManager : MonoBehaviour
         gridSize = Vector2Int.Max(Vector2Int.one, gridSize);
 
         //ensuring there is always at least one starting node
-        startingNodes = Mathf.Clamp(startingNodes, 1, gridSize.x*gridSize.y);
+        startingNodes = Mathf.Clamp(startingNodes, 1, gridSize.x * gridSize.y);
     }
 
     private void Start()
@@ -66,26 +69,37 @@ public class GameManager : MonoBehaviour
         NewGame();
     }
 
+    private void UpdatePool()
+    {   
+        //creating object pool of tiles
+        while(tiles.Count < gridSize.x * gridSize.y)
+        { 
+            Tile tile = Instantiate(tilePrefab);
+            tile.gameObject.SetActive(false);
+            tiles.Add(tile);
+        }
+    }
+
     private void Update()
     {
         if (!acceptInput) return;
 
-        if(Input.GetKeyDown(KeyCode.UpArrow) && CanMoveY())
+        if (Input.GetKeyDown(KeyCode.UpArrow) && CanMoveY())
         {
             SaveLastMove();
             MoveTilesUp();
         }
-        else if(Input.GetKeyDown(KeyCode.DownArrow) && CanMoveY())
+        else if (Input.GetKeyDown(KeyCode.DownArrow) && CanMoveY())
         {
             SaveLastMove();
             MoveTilesDown();
         }
-        else if(Input.GetKeyDown(KeyCode.RightArrow) && CanMoveX())
+        else if (Input.GetKeyDown(KeyCode.RightArrow) && CanMoveX())
         {
             SaveLastMove();
             MoveTilesRight();
         }
-        else if(Input.GetKeyDown(KeyCode.LeftArrow) && CanMoveX())
+        else if (Input.GetKeyDown(KeyCode.LeftArrow) && CanMoveX())
         {
             SaveLastMove();
             MoveTilesLeft();
@@ -96,9 +110,9 @@ public class GameManager : MonoBehaviour
     {
         undoGrid = new int[gridSize.x, gridSize.y];
         pastScore = totalScore;
-        for(int x = 0; x < gridSize.x; x++)
+        for (int x = 0; x < gridSize.x; x++)
         {
-            for(int y = 0; y < gridSize.y; y++)
+            for (int y = 0; y < gridSize.y; y++)
             {
                 undoGrid[x, y] = grid[x, y] ? grid[x, y].Value : 0;
             }
@@ -112,7 +126,7 @@ public class GameManager : MonoBehaviour
         {
             //Get all tiles in a column
             List<Tile> tilesInColumn = new List<Tile>();
-            for (int y = gridSize.y-1; y >= 0; y--)
+            for (int y = gridSize.y - 1; y >= 0; y--)
             {
                 if (grid[x, y])
                     tilesInColumn.Add(grid[x, y]);
@@ -121,7 +135,7 @@ public class GameManager : MonoBehaviour
             tilesInColumn = MergeTiles(tilesInColumn);
 
             //Place back on the grid
-            for (int y = gridSize.y-1; y >= 0; y--)
+            for (int y = gridSize.y - 1; y >= 0; y--)
             {
                 if (tilesInColumn.Count > 0)
                 {
@@ -141,13 +155,13 @@ public class GameManager : MonoBehaviour
 
     private void MoveTilesDown()
     {
-        for(int x = 0; x < gridSize.x; x++)
+        for (int x = 0; x < gridSize.x; x++)
         {
             //Get all tiles in a column
             List<Tile> tilesInColumn = new List<Tile>();
-            for(int y = 0; y < gridSize.y; y++)
+            for (int y = 0; y < gridSize.y; y++)
             {
-                if(grid[x,y])
+                if (grid[x, y])
                     tilesInColumn.Add(grid[x, y]);
             }
 
@@ -242,12 +256,21 @@ public class GameManager : MonoBehaviour
     {
         acceptInput = false;
         yield return UpdateVisuals();
+
+        //remove merged tiles
+        for(int i = 0; i < toDelete.Count; i++)
+        {
+            toDelete[i].myTile.gameObject.SetActive(false);
+        }
+        //reseting the list
+        toDelete = new List<(Tile myTile, Tile mergedTile)>();
+
         //check if win or lose
         if (GameWon())
         {
             win.SetActive(true);
         }
-        else if(!GameLost())
+        else if (!GameLost())
         {
             AddNewTile(GetEmptyTile(), spawnTiles[Random.Range(0, spawnTiles.Length)]);
             acceptInput = true;
@@ -270,7 +293,7 @@ public class GameManager : MonoBehaviour
 
     private bool GameLost()
     {
-        return !(CanMoveY() || CanMoveX());   
+        return !(CanMoveY() || CanMoveX());
     }
 
     private bool CanMoveY()
@@ -326,7 +349,8 @@ public class GameManager : MonoBehaviour
                 int newValue = tiles[pos].Value + tiles[pos].Value;
                 tiles[pos].SetupTile(newValue);
                 TotalScore += newValue;
-                Destroy(tiles[pos + 1].gameObject);
+                toDelete.Add((tiles[pos + 1], tiles[pos]));
+                //tiles[pos + 1].gameObject.SetActive(false);
                 tiles.RemoveAt(pos + 1);
             }
             else
@@ -344,9 +368,16 @@ public class GameManager : MonoBehaviour
             for (int y = 0; y < gridSize.y; y++)
             {
                 if (grid[x, y])
-                    grid[x, y].UpdatePosition(x, y);
+                    grid[x, y].UpdatePosition(new Vector3(x, y));
             }
         }
+
+        //set the tiles to merge to move to the same spot
+        for(int i = 0; i < toDelete.Count; i++)
+        {
+            toDelete[i].myTile.UpdatePosition(toDelete[i].mergedTile.NewPosition);
+        }
+
         //wait until they are all done
         for (int x = 0; x < gridSize.x; x++)
         {
@@ -354,24 +385,33 @@ public class GameManager : MonoBehaviour
             {
                 if (grid[x, y])
                 {
-                    while(grid[x,y].isMoving)
+                    while (grid[x, y].isMoving)
                     {
                         yield return new WaitForEndOfFrame();
                     }
                 }
             }
         }
+        for (int i = 0; i < toDelete.Count; i++)
+        {
+            while (toDelete[i].myTile.isMoving)
+            {
+                yield return new WaitForEndOfFrame();
+            }
+        }
+
     }
 
     public void NewGame()
     {
+        UpdatePool();
         //resetting values
         acceptInput = true;
         win.SetActive(false);
         undoBtn.SetActive(false);
         TotalScore = 0;
         //positioning camera to fit the grid. 
-        mainCam.transform.position = new Vector3(gridSize.x/2f, gridSize.y/2f, mainCam.transform.position.z);
+        mainCam.transform.position = new Vector3(gridSize.x / 2f, gridSize.y / 2f, mainCam.transform.position.z);
         mainCam.orthographicSize = Mathf.Max(gridSize.x, gridSize.y);
         board.localScale = new Vector3(gridSize.x, gridSize.y, 1);
 
@@ -398,9 +438,9 @@ public class GameManager : MonoBehaviour
         {
             for (int y = 0; y < gridSize.y; y++)
             {
-                if(undoGrid[x,y] != 0)
+                if (undoGrid[x, y] != 0)
                 {
-                    AddNewTile(new Vector2Int(x, y), undoGrid[x,y]);
+                    AddNewTile(new Vector2Int(x, y), undoGrid[x, y]);
                 }
             }
         }
@@ -412,7 +452,8 @@ public class GameManager : MonoBehaviour
 
     private void AddNewTile(Vector2Int pos, int value)
     {
-        Tile tile = Instantiate(tilePrefab, new Vector3(pos.x, pos.y), Quaternion.identity);
+        Tile tile = GetTile();
+        tile.transform.position = new Vector3(pos.x, pos.y);
         tile.SetupTile(value);
         grid[pos.x, pos.y] = tile;
     }
@@ -425,7 +466,7 @@ public class GameManager : MonoBehaviour
         {
             for (int x = 0; x < gridSize.x; x++)
             {
-                if(!grid[x,y])
+                if (!grid[x, y])
                     emptyTiles.Add(new Vector2Int(x, y));
             }
         }
@@ -447,18 +488,33 @@ public class GameManager : MonoBehaviour
                 {
                     if (grid[x, y])
                     {
-                        Destroy(grid[x, y].gameObject);
+                        grid[x, y].gameObject.SetActive(false);
                     }
                 }
             }
         }
         grid = new Tile[gridSize.x, gridSize.y];
-        
+
+
+
         //Add starting nodes
         for (int i = 0; i < startingNodes; i++)
         {
             AddNewTile(GetEmptyTile(), spawnTiles[Random.Range(0, spawnTiles.Length)]);
         }
+    }
 
+    private Tile GetTile()
+    {
+
+        for (int i = 0; i < tiles.Count; i++)
+        {
+            if (!tiles[i].gameObject.activeSelf)
+            {
+                tiles[i].gameObject.SetActive(true);
+                return tiles[i];
+            }
+        }
+        return null;
     }
 }
