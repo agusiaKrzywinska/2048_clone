@@ -166,7 +166,7 @@ public class GameManager : MonoBehaviour
             }
 
             tilesInColumn = MergeTiles(tilesInColumn);
-
+            
             //Place back on the grid
             for (int y = 0; y < gridSize.y; y++)
             {
@@ -350,11 +350,9 @@ public class GameManager : MonoBehaviour
                 tiles[pos].SetupTile(newValue);
                 TotalScore += newValue;
                 toDelete.Add((tiles[pos + 1], tiles[pos]));
-                //tiles[pos + 1].gameObject.SetActive(false);
                 tiles.RemoveAt(pos + 1);
             }
-            else
-                pos++;
+            pos++;
         }
 
         return tiles;
@@ -427,7 +425,7 @@ public class GameManager : MonoBehaviour
             {
                 if (grid[x, y])
                 {
-                    Destroy(grid[x, y].gameObject);
+                    grid[x, y].gameObject.SetActive(false);
                 }
             }
         }
